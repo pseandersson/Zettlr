@@ -285,6 +285,20 @@ export default defineComponent({
   },
   methods: {
     /**
+     * Open File
+     */
+    openFile: async function (options: {filePath: string, newTab?:boolean}) {
+      const mainWindow = await ipcRenderer.invoke('window-provider', { command: 'main-window', payload: {} })
+      await ipcRenderer.invoke('documents-provider', {
+        command: 'open-file',
+        payload: {
+          ...mainWindow,
+          path: options.filePath,
+          newTab: options.newTab
+        }
+      })
+    },
+    /**
      * This callback is called whenever the size of the controls element changes
      */
     updateGraphSize: function () {
@@ -451,13 +465,10 @@ export default defineComponent({
               .attr('r', 5)
               .attr('fill', (vertex, value) => (vertex.isolate) ? color(ISOLATES_CLASS) : color(vertex.component))
               .on('click', (event, vertex) => {
-                ipcRenderer.invoke('documents-provider', {
-                  command: 'open-file',
-                  payload: {
-                    path: vertex.id,
-                    newTab: (event.shiftKey === true) ? true : undefined
-                  }
-                }).catch(err => console.error(err))
+                this.openFile({
+                  filePath: vertex.id,
+                  newTab: (event.shiftKey === true) ? true : undefined
+                }).catch(err => console.log(err))
               })
               .attr('data-tippy-content', (vertex) => {
                 let cnt = ''

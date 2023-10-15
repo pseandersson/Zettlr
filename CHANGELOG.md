@@ -12,8 +12,7 @@
 - GraphView's labels are now rendered filled instead of stroked, to make it
   easier to read the labels.
 - The GraphView does now support multi-window, so clicking a link will open it in
-  the last focused window. If the file is already open in a leaf, that file will
-  be in that leaf, otherwise it will open the file in the last focused leaf.
+  the last focused window. It will open the file in the last focused leaf.
 - Shift+Click in GraphView will force the document to be opened in a new tab.
 
 ## Under the Hood
@@ -28,11 +27,11 @@
 - `fsal-directory::removeChild` now calls `pathExists` instead of `isFile` to make
   sure directories also are removed in removeChild
 - `pathExists` wraps `fs.promises.access`.
-- DocumentManager's `openFile` does now handle the case when windowId and leafId
-  is undefined
-- The WindowProvider keeps now track of the latest focus window, to support
-  DocumentManager's behavior. `getFirstMainWindow` will first go through the
+- The WindowProvider keeps now track of the latest focus window and leaf, to support
+  GraphView's behavior. `getFirstMainWindow` will first go through the
   focus order, before falling back to it's previous behavior.
+- WindowProvider listens to focus changes on main editor and for tab clicks, and it
+  is possible to query that last focused MainWindow and its leaf on the WindowProvider.
 
 # 3.0.2
 

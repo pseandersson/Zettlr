@@ -14,6 +14,7 @@
       v-show="!distractionFree"
       v-bind:leaf-id="leafId"
       v-bind:window-id="windowId"
+      v-bind:on-activated="onFocus"
     ></DocumentTabs>
     <div
       class="editor-container"
@@ -33,6 +34,7 @@
             v-bind:active-file="activeFile"
             v-bind:window-id="windowId"
             v-bind:editor-commands="editorCommands"
+            v-bind:on-focus="onFocus"
             v-on:global-search="$emit('globalSearch', $event)"
           ></MainEditor>
         </Teleport>
@@ -143,6 +145,19 @@ export default defineComponent({
     }
   },
   computed: {
+    onFocus () {
+      const wId = this.windowId
+      const lId = this.leafId
+      return function () {
+        ipcRenderer.invoke('window-provider', {
+          command: 'focus-leaf',
+          payload: {
+            windowId: wId,
+            leafId: lId
+          }
+        }).catch((err) => console.log(err))
+      }
+    },
     elementStyles () {
       if (this.distractionFree) {
         return ''
@@ -177,6 +192,13 @@ export default defineComponent({
     document.addEventListener('dragend', this.finishDrag, true)
   },
   beforeUnmount () {
+    ipcRenderer.invoke('window-provider', {
+      command: 'leaf-unmounted',
+      payload: {
+        windowId: this.windowId,
+        leafId: this.leafId
+      }
+    }).catch((err) => console.log(err))
     document.removeEventListener('dragend', this.finishDrag)
   },
   methods: {

@@ -89,6 +89,10 @@ const props = defineProps({
   file: {
     type: Object as () => OpenDocument,
     required: true
+  },
+  onFocus: {
+    type: Function,
+    required: true
   }
 })
 
@@ -366,13 +370,7 @@ async function getEditorFor (doc: string): Promise<MarkdownEditor> {
   })
 
   editor.on('focus', () => {
-    ipcRenderer.invoke('documents-provider', {
-      command: 'focus-leaf',
-      payload: {
-        leafId: props.leafId,
-        windowId: props.windowId
-      }
-    }).catch(err => console.error(err))
+    props.onFocus()
 
     store.dispatch('lastLeafId', props.leafId).catch(err => console.error(err))
     if (currentEditor === editor) {

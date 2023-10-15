@@ -58,6 +58,7 @@ import { trans } from '@common/i18n-main'
 import type ConfigProvider from '@providers/config'
 import PersistentDataContainer from '@common/modules/persistent-data-container'
 import { getCLIArgument, LAUNCH_MINIMIZED } from '@providers/cli-provider'
+import { TreeFocusManager } from './focus-manager'
 
 export default class WindowProvider extends ProviderContract {
   private readonly _mainWindows: Record<string, BrowserWindow>
@@ -79,7 +80,7 @@ export default class WindowProvider extends ProviderContract {
   private readonly _hasRTLLocale: boolean
   private suppressWindowOpening: boolean
   private readonly _emitter: EventEmitter
-  private readonly _mainFocusOrder: string[]
+  private readonly _focusManager: TreeFocusManager
 
   constructor (
     private readonly _logger: LogProvider,
@@ -104,7 +105,7 @@ export default class WindowProvider extends ProviderContract {
     this._windowState = new Map()
     this._configFile = path.join(app.getPath('userData'), 'window_state.yml')
     this._stateContainer = new PersistentDataContainer(this._configFile, 'yaml', 1000)
-    this._mainFocusOrder = []
+    this._focusManager = new TreeFocusManager()
 
     // If the corresponding CLI flag is passed, we should suppress opening of
     // any windows until the user has manually activated the app by utilizing
@@ -127,6 +128,17 @@ export default class WindowProvider extends ProviderContract {
     } else {
       this._hasRTLLocale = false
     }
+
+    ipcMain.handle('window-provider', async (_, { command, payload }) => {
+      switch (command) {
+        case 'main-window':
+          return this._focusManager.getFocus()
+        case 'leaf-unmounted':
+          return this._focusManager.deleteLeaf(payload.windowId, payload.leafId)
+        case 'focus-leaf':
+          return this._focusManager.setFocus(payload.windowId, payload.leafId)
+      }
+    })
 
     // Listen to window control commands
     ipcMain.on('window-controls', (event, message) => {
@@ -309,29 +321,13 @@ export default class WindowProvider extends ProviderContract {
   }
 
   /**
-   * Update the focus order such that select focus is first in the
-   * array.
+   * Initiate the FocusManager with the first leafId in the documentTree
+   * belonging to the window key
    *
-   * @param   {string}  key  windowId to be sorted first
+   * @param   {string}         key     The windowId
    */
-  private _updateFocusOrder (key: string): void {
-    const index = this._mainFocusOrder.indexOf(key)
-    if (index > -1) {
-      this._mainFocusOrder.splice(index, 1)
-    }
-    this._mainFocusOrder.splice(0, 0, key)
-  }
-
-  /**
-   * Remove a key from the focus ordering, eg when a window is closed.
-   *
-   * @param   {string}  key  windowId to be removed
-   */
-  private _deleteFocusKey (key: string): void {
-    const index = this._mainFocusOrder.indexOf(key)
-    if (index > -1) {
-      this._mainFocusOrder.splice(index, 1)
-    }
+  private _hookFocusManagement (key: string): void {
+    this._focusManager.setFocus(key, this._documents.leafIds(key)[0])
   }
 
   /**
@@ -341,7 +337,7 @@ export default class WindowProvider extends ProviderContract {
     window.on('focus', (_: any) => {
       const key = this.getMainWindowKey(window)
       if (key !== undefined) {
-        this._updateFocusOrder(key)
+        this._focusManager.setFocus(key)
       }
     })
 
@@ -398,7 +394,7 @@ export default class WindowProvider extends ProviderContract {
         return
       }
 
-      this._deleteFocusKey(key)
+      this._focusManager.deleteWindow(key)
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete this._mainWindows[key]
@@ -617,6 +613,7 @@ export default class WindowProvider extends ProviderContract {
       })
 
       const win = createMainWindow(key, this._logger, this._config, this._documents, windowConfiguration)
+      this._hookFocusManagement(key)
       this._hookMainWindow(win)
       this._hookWindowResize(win, stateId)
       this._mainWindows[key] = win
@@ -658,7 +655,7 @@ export default class WindowProvider extends ProviderContract {
       return focusedWindow
     }
 
-    for (const key of this._mainFocusOrder) {
+    for (const key of this._focusManager.getWindowsOrder()) {
       if (this._mainWindows[key] !== undefined) {
         return this._mainWindows[key]
       }

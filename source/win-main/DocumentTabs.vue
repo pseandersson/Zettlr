@@ -108,6 +108,10 @@ export default defineComponent({
     windowId: {
       type: String,
       required: true
+    },
+    onActivated: {
+      type: Function,
+      required: true
     }
   },
   data () {
@@ -416,6 +420,7 @@ export default defineComponent({
         // perform this action on a right-click (button === 2), but that event
         // must be handled by the container).
         this.selectFile(file)
+        this.onActivated()
       }
     },
     /**
